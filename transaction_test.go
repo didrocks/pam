@@ -166,6 +166,43 @@ func TestPAM_007(t *testing.T) {
 	}
 }
 
+func TestPAM_WithConfDir(t *testing.T) {
+	u, _ := user.Current()
+	if u.Uid != "0" {
+		t.Skip("run this test as root")
+	}
+	c := Credentials{
+		// the custom service always permits even with wrong password.
+		Password: "wrongsecret",
+	}
+	tx, err := Start("my-service", "test", c, WithConfDir("."))
+	if err != nil {
+		t.Fatalf("start #error: %v", err)
+	}
+	err = tx.Authenticate(0)
+	if err != nil {
+		t.Fatalf("authenticate #error: %v", err)
+	}
+}
+
+func TestPAM_WithConfDir_FailNoService(t *testing.T) {
+	u, _ := user.Current()
+	if u.Uid != "0" {
+		t.Skip("run this test as root")
+	}
+	c := Credentials{
+		Password: "secret",
+	}
+	_, err := Start("does-not-exists", "test", c, WithConfDir("."))
+	if err == nil {
+		t.Fatalf("authenticate #expected an error")
+	}
+	s := err.Error()
+	if len(s) == 0 {
+		t.Fatalf("error #expected an error message")
+	}
+}
+
 func TestItem(t *testing.T) {
 	tx, _ := StartFunc("passwd", "test", func(s Style, msg string) (string, error) {
 		return "", nil

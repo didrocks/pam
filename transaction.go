@@ -69,7 +69,7 @@ func cbPAMConv(s C.int, msg *C.char, c int) (*C.char, C.int) {
 
 // Transaction is the application's handle for a PAM transaction.
 type Transaction struct {
-	handle *C.pam_handle_t
+	Handle *C.pam_handle_t
 	conv   *C.struct_pam_conv
 	status C.int
 	c      int
@@ -78,7 +78,7 @@ type Transaction struct {
 // transactionFinalizer cleans up the PAM handle and deletes the callback
 // function.
 func transactionFinalizer(t *Transaction) {
-	C.pam_end(t.handle, t.status)
+	C.pam_end(t.Handle, t.status)
 	cbDelete(t.c)
 }
 
@@ -127,11 +127,11 @@ func Start(service, user string, handler ConversationHandler, opts ...Option) (*
 		defer C.free(unsafe.Pointer(u))
 	}
 	if o.confDir == "" {
-		t.status = C.pam_start(s, u, t.conv, &t.handle)
+		t.status = C.pam_start(s, u, t.conv, &t.Handle)
 	} else {
 		c := C.CString(o.confDir)
 		defer C.free(unsafe.Pointer(c))
-		t.status = C.pam_start_confdir(s, u, t.conv, c, &t.handle)
+		t.status = C.pam_start_confdir(s, u, t.conv, c, &t.Handle)
 	}
 	if t.status != C.PAM_SUCCESS {
 		return nil, t
@@ -145,7 +145,7 @@ func StartFunc(service, user string, handler func(Style, string) (string, error)
 }
 
 func (t *Transaction) Error() string {
-	return C.GoString(C.pam_strerror(t.handle, C.int(t.status)))
+	return C.GoString(C.pam_strerror(t.Handle, C.int(t.status)))
 }
 
 // Item is a an PAM information type.
@@ -175,7 +175,7 @@ const (
 func (t *Transaction) SetItem(i Item, item string) error {
 	cs := unsafe.Pointer(C.CString(item))
 	defer C.free(cs)
-	t.status = C.pam_set_item(t.handle, C.int(i), cs)
+	t.status = C.pam_set_item(t.Handle, C.int(i), cs)
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -185,7 +185,7 @@ func (t *Transaction) SetItem(i Item, item string) error {
 // GetItem retrieves a PAM information item.
 func (t *Transaction) GetItem(i Item) (string, error) {
 	var s unsafe.Pointer
-	t.status = C.pam_get_item(t.handle, C.int(i), &s)
+	t.status = C.pam_get_item(t.Handle, C.int(i), &s)
 	if t.status != C.PAM_SUCCESS {
 		return "", t
 	}
@@ -224,7 +224,7 @@ const (
 //
 // Valid flags: Silent, DisallowNullAuthtok
 func (t *Transaction) Authenticate(f Flags) error {
-	t.status = C.pam_authenticate(t.handle, C.int(f))
+	t.status = C.pam_authenticate(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -236,7 +236,7 @@ func (t *Transaction) Authenticate(f Flags) error {
 //
 // Valid flags: EstablishCred, DeleteCred, ReinitializeCred, RefreshCred
 func (t *Transaction) SetCred(f Flags) error {
-	t.status = C.pam_setcred(t.handle, C.int(f))
+	t.status = C.pam_setcred(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -247,7 +247,7 @@ func (t *Transaction) SetCred(f Flags) error {
 //
 // Valid flags: Silent, DisallowNullAuthtok
 func (t *Transaction) AcctMgmt(f Flags) error {
-	t.status = C.pam_acct_mgmt(t.handle, C.int(f))
+	t.status = C.pam_acct_mgmt(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -258,7 +258,7 @@ func (t *Transaction) AcctMgmt(f Flags) error {
 //
 // Valid flags: Silent, ChangeExpiredAuthtok
 func (t *Transaction) ChangeAuthTok(f Flags) error {
-	t.status = C.pam_chauthtok(t.handle, C.int(f))
+	t.status = C.pam_chauthtok(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -269,7 +269,7 @@ func (t *Transaction) ChangeAuthTok(f Flags) error {
 //
 // Valid flags: Slient
 func (t *Transaction) OpenSession(f Flags) error {
-	t.status = C.pam_open_session(t.handle, C.int(f))
+	t.status = C.pam_open_session(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -280,7 +280,7 @@ func (t *Transaction) OpenSession(f Flags) error {
 //
 // Valid flags: Silent
 func (t *Transaction) CloseSession(f Flags) error {
-	t.status = C.pam_close_session(t.handle, C.int(f))
+	t.status = C.pam_close_session(t.Handle, C.int(f))
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -295,7 +295,7 @@ func (t *Transaction) CloseSession(f Flags) error {
 func (t *Transaction) PutEnv(nameval string) error {
 	cs := C.CString(nameval)
 	defer C.free(unsafe.Pointer(cs))
-	t.status = C.pam_putenv(t.handle, cs)
+	t.status = C.pam_putenv(t.Handle, cs)
 	if t.status != C.PAM_SUCCESS {
 		return t
 	}
@@ -306,7 +306,7 @@ func (t *Transaction) PutEnv(nameval string) error {
 func (t *Transaction) GetEnv(name string) string {
 	cs := C.CString(name)
 	defer C.free(unsafe.Pointer(cs))
-	value := C.pam_getenv(t.handle, cs)
+	value := C.pam_getenv(t.Handle, cs)
 	if value == nil {
 		return ""
 	}
@@ -320,7 +320,7 @@ func next(p **C.char) **C.char {
 // GetEnvList returns a copy of the PAM environment as a map.
 func (t *Transaction) GetEnvList() (map[string]string, error) {
 	env := make(map[string]string)
-	p := C.pam_getenvlist(t.handle)
+	p := C.pam_getenvlist(t.Handle)
 	if p == nil {
 		t.status = C.PAM_BUF_ERR
 		return nil, t

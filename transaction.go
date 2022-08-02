@@ -82,12 +82,37 @@ func transactionFinalizer(t *Transaction) {
 	cbDelete(t.c)
 }
 
+// options are the options supported by Start.
+type options struct {
+	confDir string
+}
+
+// Option represents one functional option passed to Start.
+type Option func(*options) error
+
+// WithConfDir will call pam_start_confdir instead of pam_start, which allows to define
+// where all pam services are defined. This is used to provide custom paths for tests.
+func WithConfDir(p string) Option {
+	return func(o *options) error {
+		o.confDir = p
+		return nil
+	}
+}
+
 // Start initiates a new PAM transaction. Service is treated identically to
 // how pam_start treats it internally.
 //
 // All application calls to PAM begin with Start (or StartFunc). The returned
 // transaction provides an interface to the remainder of the API.
-func Start(service, user string, handler ConversationHandler) (*Transaction, error) {
+func Start(service, user string, handler ConversationHandler, opts ...Option) (*Transaction, error) {
+	o := options{}
+	// applied options
+	for _, opt := range opts {
+		if err := opt(&o); err != nil {
+			return nil, err
+		}
+	}
+
 	t := &Transaction{
 		conv: &C.struct_pam_conv{},
 		c:    cbAdd(handler),
@@ -101,7 +126,13 @@ func Start(service, user string, handler ConversationHandler) (*Transaction, err
 		u = C.CString(user)
 		defer C.free(unsafe.Pointer(u))
 	}
-	t.status = C.pam_start(s, u, t.conv, &t.handle)
+	if o.confDir == "" {
+		t.status = C.pam_start(s, u, t.conv, &t.handle)
+	} else {
+		c := C.CString(o.confDir)
+		defer C.free(unsafe.Pointer(c))
+		t.status = C.pam_start_confdir(s, u, t.conv, c, &t.handle)
+	}
 	if t.status != C.PAM_SUCCESS {
 		return nil, t
 	}
@@ -109,8 +140,8 @@ func Start(service, user string, handler ConversationHandler) (*Transaction, err
 }
 
 // StartFunc registers the handler func as a conversation handler.
-func StartFunc(service, user string, handler func(Style, string) (string, error)) (*Transaction, error) {
-	return Start(service, user, ConversationFunc(handler))
+func StartFunc(service, user string, handler func(Style, string) (string, error), opts ...Option) (*Transaction, error) {
+	return Start(service, user, ConversationFunc(handler), opts...)
 }
 
 func (t *Transaction) Error() string {

@@ -6,6 +6,7 @@ package pam
 //#cgo CFLAGS: -Wall -std=c99
 //#cgo LDFLAGS: -lpam
 //void init_pam_conv(struct pam_conv *conv, long c);
+//int pam_start_confdir(const char *service_name, const char *user, const struct pam_conv *pam_conversation, const char *confdir, pam_handle_t **pamh) __attribute__ ((weak));
 import "C"
 
 import (
@@ -129,6 +130,9 @@ func Start(service, user string, handler ConversationHandler, opts ...Option) (*
 	if o.confDir == "" {
 		t.status = C.pam_start(s, u, t.conv, &t.handle)
 	} else {
+		/*if C.pam_start_confdir == nil {
+			return nil, errors.New("option WithConfDir() was used, but the pam version on the system is not recent enough")
+		}*/
 		c := C.CString(o.confDir)
 		defer C.free(unsafe.Pointer(c))
 		t.status = C.pam_start_confdir(s, u, t.conv, c, &t.handle)
